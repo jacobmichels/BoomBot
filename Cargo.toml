@@ -7,4 +7,5 @@ edition = "2018"
 
 [dependencies]
 serenity = "0.10"
-sqlx = { version = "0.5", features = [ "runtime-tokio-native-tls" ] }
+tokio = { version = "1.11.0", features = ["full"] }
+sqlx = { version = "0.5", features = [ "runtime-tokio-rustls" ] }
