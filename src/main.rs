@@ -49,9 +49,14 @@ async fn ping(ctx: &Context, msg: &Message) -> CommandResult {
     Ok(())
 }
 
-#[command]
+// #[command]
 async fn test(ctx: &Context, msg: &Message) -> CommandResult {
-    msg.reply(ctx, "Hello there!").await?;
+    let mut message = msg
+        .reply(ctx, "This message will be edited in 5 seconds!")
+        .await?;
+
+    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+    message.edit(&ctx, |m| m.content("Message edited!"));
 
     Ok(())
 }
