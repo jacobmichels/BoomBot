@@ -29,11 +29,12 @@ async fn main() {
         .group(&GENERAL_GROUP);
 
     // Login with a bot token from the environment
-    let mut client = Client::builder("ODg4OTg3NTAzMzQyNzkyNzU1.YUasIQ.T026llAVaeMe5CPSZACBENyXCwo")
-        .event_handler(Handler)
-        .framework(framework)
-        .await
-        .expect("Error creating client");
+    let mut client =
+        Client::builder(env::var("DISCORD_TOKEN").expect("Discord token not available."))
+            .event_handler(Handler)
+            .framework(framework)
+            .await
+            .expect("Error creating client");
 
     // start listening for events by starting a single shard
     if let Err(why) = client.start().await {
