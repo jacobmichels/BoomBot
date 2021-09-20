@@ -18,7 +18,7 @@ jobs:
     - uses: actions/checkout@v2
     - name: Build
       run: cargo build --release
-    - name: Deploy
+    - name: Copy build artifact
       uses: appleboy/scp-action@master
       with:
         host: ${{ secrets.HOST }}
@@ -27,3 +27,21 @@ jobs:
         passphrase: ${{ secrets.PASSPHRASE }}
         source: "target/release/boom_bot"
         target: ${{ secrets.OUTPUT_DIR }}
+    - name: Deploy
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.HOST }}
+        username: ${{ secrets.USERNAME }}
+        key: ${{ secrets.KEY }}
+        passphrase: ${{ secrets.PASSPHRASE }}
+        port: ${{ secrets.PORT }}
+        script: |
+          tmux kill-server
+          mv ${{ secrets.OUTPUT_DIR }}/target/release/boom_bot ${{ secrets.DEPLOY_HOME }}
+          cd ${{ secrets.DEPLOY_HOME }}
+          tmux
+          cd ${{ secrets.DEPLOY_HOME }}
+          ./boom_bot
+          tmux detach
+          
+          
