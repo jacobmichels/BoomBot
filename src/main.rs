@@ -56,7 +56,7 @@ async fn test(ctx: &Context, msg: &Message) -> CommandResult {
         .await?;
 
     tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-    message.edit(&ctx, |m| m.content("Message edited!"));
+    message.edit(&ctx, |m| m.content("Message edited!")).await?;
 
     Ok(())
 }
