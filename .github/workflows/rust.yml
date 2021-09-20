@@ -34,7 +34,6 @@ jobs:
         username: ${{ secrets.USERNAME }}
         key: ${{ secrets.KEY }}
         passphrase: ${{ secrets.PASSPHRASE }}
-        port: ${{ secrets.PORT }}
         script: |
           tmux kill-server
           mv ${{ secrets.OUTPUT_DIR }}/target/release/boom_bot ${{ secrets.DEPLOY_HOME }}
