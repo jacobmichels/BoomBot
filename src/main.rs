@@ -49,7 +49,7 @@ async fn ping(ctx: &Context, msg: &Message) -> CommandResult {
     Ok(())
 }
 
-// #[command]
+#[command]
 async fn test(ctx: &Context, msg: &Message) -> CommandResult {
     let mut message = msg
         .reply(ctx, "This message will be edited in 5 seconds!")
