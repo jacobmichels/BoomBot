@@ -55,6 +55,10 @@ async fn test(ctx: &Context, msg: &Message) -> CommandResult {
         .reply(ctx, "This message will be edited in 5 seconds!")
         .await?;
 
+    let author = &msg.author;
+    let channel = author.create_dm_channel(ctx).await?;
+    channel.say(ctx, "Hey there.").await?;
+
     tokio::time::sleep(std::time::Duration::from_secs(5)).await;
     message.edit(&ctx, |m| m.content("Message edited!")).await?;
 
