@@ -10,7 +10,7 @@ use serenity::model::prelude::Ready;
 use std::env;
 
 #[group]
-#[commands(ping)]
+#[commands(ping, test)]
 struct General;
 
 struct Handler;
@@ -44,6 +44,13 @@ async fn main() {
 #[command]
 async fn ping(ctx: &Context, msg: &Message) -> CommandResult {
     msg.reply(ctx, "Pong!").await?;
+
+    Ok(())
+}
+
+#[command]
+async fn test(ctx: &Context, msg: &Message) -> CommandResult {
+    msg.reply(ctx, "Hello there!").await?;
 
     Ok(())
 }
