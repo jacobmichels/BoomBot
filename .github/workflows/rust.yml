@@ -47,4 +47,4 @@ jobs:
           tmux kill-server
           mv ${{ secrets.OUTPUT_DIR }}/target/release/boom_bot ${{ secrets.DEPLOY_HOME }}
           cd ${{ secrets.DEPLOY_HOME }}
-          tmux new-session -d -s boombot_session 'cd ${{ secrets.DEPLOY_HOME }} && ./boom_bot'
+          tmux new-session -d -s boombot_session 'cd ${{ secrets.DEPLOY_HOME }} && export DISCORD_TOKEN="${{ secrets.DISCORD_TOKEN }}" && ./boom_bot'
