@@ -24,5 +24,6 @@ jobs:
         host: ${{ secrets.HOST }}
         username: ${{ secrets.USERNAME }}
         key: ${{ secrets.KEY }}
+        passphrase: ${{ secrets.PASSPHRASE }}
         source: "target/release/boom_bot"
         target: ${{ secrets.OUTPUT_DIR }}
