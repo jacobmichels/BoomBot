@@ -6,11 +6,17 @@ use serenity::framework::standard::{
 };
 use serenity::model::channel::Message;
 use serenity::model::prelude::Ready;
+use std::str::FromStr;
+use std::sync::Arc;
+
+use serenity::prelude::{RwLock, TypeMapKey};
+use sqlx::sqlite::SqliteConnectOptions;
+use sqlx::{query_as, ConnectOptions, Pool, Sqlite, SqliteConnection};
 
 use std::env;
 
 #[group]
-#[commands(ping, test)]
+#[commands(ping, test, myshop)]
 struct General;
 
 struct Handler;
@@ -22,8 +28,13 @@ impl EventHandler for Handler {
     }
 }
 
+struct ValorantUser {
+    username: String,
+    password: String,
+}
+
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), impl std::error::Error> {
     let framework = StandardFramework::new()
         .configure(|c| c.prefix("/")) // set the bot's prefix to "/"
         .group(&GENERAL_GROUP);
@@ -39,7 +50,10 @@ async fn main() {
     // start listening for events by starting a single shard
     if let Err(why) = client.start().await {
         println!("An error occurred while running the client: {:?}", why);
+        return Err(why);
     }
+
+    Ok(())
 }
 
 #[command]
@@ -61,6 +75,49 @@ async fn test(ctx: &Context, msg: &Message) -> CommandResult {
 
     tokio::time::sleep(std::time::Duration::from_secs(5)).await;
     message.edit(&ctx, |m| m.content("Message edited!")).await?;
+
+    Ok(())
+}
+
+#[command]
+async fn myshop(ctx: &Context, msg: &Message) -> CommandResult {
+    let author_id = msg.author.id.to_string();
+
+    println!("{}", author_id);
+
+    let mut conn = SqliteConnectOptions::from_str("sqlite://app.db")
+        .unwrap()
+        .create_if_missing(true)
+        .connect()
+        .await
+        .unwrap();
+
+    //check if author_id is in database.
+    let user = query_as!(
+        ValorantUser,
+        "select username, password from valorant_accounts where discord_id = ?",
+        author_id
+    )
+    .fetch_one(&mut conn)
+    .await;
+
+    match user {
+        Err(err) => match err {
+            sqlx::Error::RowNotFound => {
+                msg.reply(ctx, "User not found").await?;
+            }
+            _ => {
+                msg.reply(ctx, format!("Database error {:?}", err)).await?;
+            }
+        },
+        Ok(user) => {
+            msg.reply(ctx, "Found user!").await?;
+        }
+    }
+
+    //if not, dm them asking for their account info. then add them to the db
+
+    //if so, then fetch their information from the db and call the my store api.
 
     Ok(())
 }
