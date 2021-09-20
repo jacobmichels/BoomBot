@@ -16,6 +16,15 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+    - uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
     - name: Build
       run: cargo build --release
     - name: Copy build artifact
@@ -38,10 +47,4 @@ jobs:
           tmux kill-server
           mv ${{ secrets.OUTPUT_DIR }}/target/release/boom_bot ${{ secrets.DEPLOY_HOME }}
           cd ${{ secrets.DEPLOY_HOME }}
-          tmux
-          cd ${{ secrets.DEPLOY_HOME }}
-          ./boom_bot
-          tmux detach
-          exit
-          
-          
+          tmux new-session -d -s boombot_session 'cd ${{ secrets.DEPLOY_HOME }} && ./boom_bot'
