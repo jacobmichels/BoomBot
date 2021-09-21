@@ -28,6 +28,7 @@ impl EventHandler for Handler {
     }
 }
 
+#[derive(sqlx::FromRow)]
 struct ValorantUser {
     username: String,
     password: String,
@@ -92,11 +93,10 @@ async fn myshop(ctx: &Context, msg: &Message) -> CommandResult {
         .await
         .unwrap();
 
-    //check if author_id is in database.
-    let user = query_as!(
-        ValorantUser,
+    //check if author_id is in the database.
+
+    let user = query_as::<_, ValorantUser>(
         "select username, password from valorant_accounts where discord_id = ?",
-        author_id
     )
     .fetch_one(&mut conn)
     .await;
@@ -104,20 +104,19 @@ async fn myshop(ctx: &Context, msg: &Message) -> CommandResult {
     match user {
         Err(err) => match err {
             sqlx::Error::RowNotFound => {
+                //if not, dm them asking for their account info. then add them to the db
                 msg.reply(ctx, "User not found").await?;
             }
             _ => {
                 msg.reply(ctx, format!("Database error {:?}", err)).await?;
             }
         },
+        //if so, then fetch their information from the db and call the my store api.
         Ok(user) => {
-            msg.reply(ctx, "Found user!").await?;
+            msg.reply(ctx, format!("Found user {}!", user.username))
+                .await?;
         }
     }
-
-    //if not, dm them asking for their account info. then add them to the db
-
-    //if so, then fetch their information from the db and call the my store api.
 
     Ok(())
 }
