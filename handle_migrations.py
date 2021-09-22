@@ -5,7 +5,8 @@ from datetime import datetime
 
 # Ensure sqlx is installed
 process = subprocess.run(["sqlx", "-V"])
-if not process.check_returncode():
+process.check_returncode()
+if process.returncode != 0:
     print("sqlx cli tool not installed. Install it with cargo install sqlx-cli.")
     exit(-1)
 
