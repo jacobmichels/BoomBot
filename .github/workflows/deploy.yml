@@ -21,7 +21,6 @@ jobs:
         script: |
           tmux kill-session -t boombot_session
           cd ${{ secrets.DEPLOY_HOME }}
-          cargo clean
           git pull
           cargo build --release
           python3 handle_migrations.py
