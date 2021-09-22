@@ -1,4 +1,4 @@
-name: Rust
+name: Ensure builds
 
 on:
   push:
@@ -27,24 +27,3 @@ jobs:
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
     - name: Build
       run: cargo build --release
-    - name: Copy build artifact
-      uses: appleboy/scp-action@master
-      with:
-        host: ${{ secrets.HOST }}
-        username: ${{ secrets.USERNAME }}
-        key: ${{ secrets.KEY }}
-        passphrase: ${{ secrets.PASSPHRASE }}
-        source: "target/release/boom_bot"
-        target: ${{ secrets.OUTPUT_DIR }}
-    - name: Deploy
-      uses: appleboy/ssh-action@master
-      with:
-        host: ${{ secrets.HOST }}
-        username: ${{ secrets.USERNAME }}
-        key: ${{ secrets.KEY }}
-        passphrase: ${{ secrets.PASSPHRASE }}
-        script: |
-          tmux kill-server
-          mv ${{ secrets.OUTPUT_DIR }}/target/release/boom_bot ${{ secrets.DEPLOY_HOME }}
-          cd ${{ secrets.DEPLOY_HOME }}
-          tmux new-session -d -s boombot_session 'cd ${{ secrets.DEPLOY_HOME }} && export DISCORD_TOKEN="${{ secrets.DISCORD_TOKEN }}" && ./boom_bot'
