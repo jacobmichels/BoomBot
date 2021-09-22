@@ -18,7 +18,6 @@ jobs:
         username: ${{ secrets.USERNAME }}
         key: ${{ secrets.KEY }}
         passphrase: ${{ secrets.PASSPHRASE }}
-        script_stop: true
         script: |
           tmux kill-session -t boombot_session
           cd ${{ secrets.DEPLOY_HOME }}
