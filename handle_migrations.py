@@ -4,7 +4,7 @@ from subprocess import PIPE
 from datetime import datetime
 
 # Ensure sqlx is installed
-process = subprocess.run(["sqlx"])
+process = subprocess.run(["sqlx", "-V"])
 if not process.check_returncode():
     print("sqlx cli tool not installed. Install it with cargo install sqlx-cli.")
     exit(-1)
