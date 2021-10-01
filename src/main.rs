@@ -72,31 +72,32 @@ async fn myshop(ctx: &Context, msg: &Message) -> CommandResult {
 
     //check if author_id is in the database.
 
-    let user = query_as::<_, ValorantUser>(
+    let user: Option<ValorantUser> = query_as::<_, ValorantUser>(
         "select username, password from valorant_accounts where discord_id = ?",
     )
     .bind(author_id)
-    .fetch_one(&mut conn)
-    .await;
+    .fetch_optional(&mut conn)
+    .await
+    .unwrap();
 
     match user {
-        Err(err) => match err {
-            sqlx::Error::RowNotFound => {
-                //if not, dm them asking for their account info. then add them to the db
-                msg.reply(ctx, "To view your shop, we need to get set up first. Check your DMs for instructions!").await?;
-                msg.author
-                    .create_dm_channel(&ctx)
-                    .await?
-                    .say(&ctx, format!("Hello {}! To access your Valorant shop, I need access to your Riot account. Please respond with the following: one message containing only your riot username, one message containing only your riot password.", msg.author.name))
-                    .await?;
-            }
-            _ => {
-                msg.reply(ctx, format!("Database error {:?}", err)).await?;
-            }
-        },
-        //if so, then fetch their information from the db and call the my store api.
-        Ok(user) => {
-            msg.reply(ctx, "Fetching your shop...").await?;
+        Some(user) => {
+            msg.reply(
+                ctx,
+                format!("Fetching shop for valorant user {}...", user.username),
+            )
+            .await?;
+        }
+        None => {
+            msg.reply(
+                ctx,
+                "To view your shop, we need to get set up first. Check your DMs for instructions!",
+            )
+            .await?;
+
+            msg.author.create_dm_channel(&ctx).await?
+            .say(&ctx, format!("Hello {}! To access your Valorant shop, I need access to your Riot account. Please respond with the following: one message containing only your riot username, one message containing only your riot password.", msg.author.name))
+            .await?;
         }
     }
 
