@@ -16,7 +16,7 @@ use sqlx::{query_as, ConnectOptions, Pool, Sqlite, SqliteConnection};
 use std::env;
 
 #[group]
-#[commands(ping, test, myshop)]
+#[commands(myshop)]
 struct General;
 
 struct Handler;
@@ -58,29 +58,6 @@ async fn main() -> Result<(), impl std::error::Error> {
 }
 
 #[command]
-async fn ping(ctx: &Context, msg: &Message) -> CommandResult {
-    msg.reply(ctx, "Pong!").await?;
-
-    Ok(())
-}
-
-#[command]
-async fn test(ctx: &Context, msg: &Message) -> CommandResult {
-    let mut message = msg
-        .reply(ctx, "This message will be edited in 5 seconds!")
-        .await?;
-
-    let author = &msg.author;
-    let channel = author.create_dm_channel(ctx).await?;
-    channel.say(ctx, "Hey there.").await?;
-
-    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-    message.edit(&ctx, |m| m.content("Message edited!")).await?;
-
-    Ok(())
-}
-
-#[command]
 async fn myshop(ctx: &Context, msg: &Message) -> CommandResult {
     let author_id = msg.author.id.to_string();
 
@@ -98,6 +75,7 @@ async fn myshop(ctx: &Context, msg: &Message) -> CommandResult {
     let user = query_as::<_, ValorantUser>(
         "select username, password from valorant_accounts where discord_id = ?",
     )
+    .bind(author_id)
     .fetch_one(&mut conn)
     .await;
 
@@ -105,7 +83,12 @@ async fn myshop(ctx: &Context, msg: &Message) -> CommandResult {
         Err(err) => match err {
             sqlx::Error::RowNotFound => {
                 //if not, dm them asking for their account info. then add them to the db
-                msg.reply(ctx, "User not found").await?;
+                msg.reply(ctx, "To view your shop, we need to get set up first. Check your DMs for instructions!").await?;
+                msg.author
+                    .create_dm_channel(&ctx)
+                    .await?
+                    .say(&ctx, format!("Hello {}! To access your Valorant shop, I need access to your Riot account. Please respond with the following: one message containing only your riot username, one message containing only your riot password.", msg.author.name))
+                    .await?;
             }
             _ => {
                 msg.reply(ctx, format!("Database error {:?}", err)).await?;
@@ -113,8 +96,7 @@ async fn myshop(ctx: &Context, msg: &Message) -> CommandResult {
         },
         //if so, then fetch their information from the db and call the my store api.
         Ok(user) => {
-            msg.reply(ctx, format!("Found user {}!", user.username))
-                .await?;
+            msg.reply(ctx, "Fetching your shop...").await?;
         }
     }
 
