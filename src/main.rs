@@ -6,6 +6,7 @@ use serenity::framework::standard::{
 };
 use serenity::model::channel::Message;
 use serenity::model::prelude::Ready;
+use std::collections::HashMap;
 use std::str::FromStr;
 
 use sqlx::sqlite::SqliteConnectOptions;
@@ -85,6 +86,8 @@ async fn myshop(ctx: &Context, msg: &Message) -> CommandResult {
                 format!("Fetching shop for valorant user {}...", user.username),
             )
             .await?;
+
+            let storefront = get_storefront_items(user);
         }
         None => {
             msg.reply(
@@ -100,4 +103,18 @@ async fn myshop(ctx: &Context, msg: &Message) -> CommandResult {
     }
 
     Ok(())
+}
+
+async fn get_storefront_items(user: ValorantUser) -> Result<String, Box<dyn std::error::Error>> {
+    let client = reqwest::Client::new();
+    let res = client
+        .post("https://auth.riotgames.com/api/v1/authorization")
+        .header("Content-Type", "application/json")
+        .send()
+        .await?;
+
+    let json = res.json::<HashMap<String, String>>().await?;
+    println!("{:?}", json);
+
+    Ok(String::from(""))
 }
