@@ -7,11 +7,9 @@ use serenity::framework::standard::{
 use serenity::model::channel::Message;
 use serenity::model::prelude::Ready;
 use std::str::FromStr;
-use std::sync::Arc;
 
-use serenity::prelude::{RwLock, TypeMapKey};
 use sqlx::sqlite::SqliteConnectOptions;
-use sqlx::{query_as, ConnectOptions, Pool, Sqlite, SqliteConnection};
+use sqlx::{query_as, ConnectOptions};
 
 use std::env;
 
