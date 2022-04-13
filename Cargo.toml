@@ -1,13 +1,8 @@
 [package]
-name = "boom_bot"
+name = "BoomBot"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-serenity = "0.10"
-tokio = { version = "1.11.0", features = ["full"] }
-sqlx = { version = "0.5", features = [ "runtime-tokio-rustls", "sqlite", "macros", "migrate" ] }
-ctrlc = { version = "3.0", features = ["termination"] }
-reqwest = { version = "0.11", features = ["json"] }
