@@ -12,6 +12,8 @@ use serenity::{
     prelude::*,
 };
 
+use super::command_handlers;
+
 pub struct DiscordHandler;
 
 #[async_trait]
@@ -44,21 +46,12 @@ impl EventHandler for DiscordHandler {
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
         // In this method we react to our bot's slash commands
         if let Interaction::ApplicationCommand(command) = interaction {
-            let content = get_command_output(&command);
+            // If the interaction is an ApplicationCommand, we run the appropriate handler function
+            let reply_message = get_command_output(&command);
 
-            let result = command
-                .create_interaction_response(&ctx.http, |response| {
-                    response
-                        .kind(InteractionResponseType::ChannelMessageWithSource)
-                        .interaction_response_data(|message| {
-                            message
-                                .content(content)
-                                .flags(InteractionApplicationCommandCallbackDataFlags::EPHEMERAL)
-                        })
-                })
-                .await;
+            let reply_send_result = send_ephemeral_reply(&ctx, &command, &reply_message).await;
 
-            if let Err(why) = result {
+            if let Err(why) = reply_send_result {
                 log::error!(
                     "An error occured while sending interaction response: {}",
                     why
@@ -87,13 +80,28 @@ fn create_slash_commands(
     })
 }
 
-fn test_command_invoked() -> String {
-    String::from("reply!")
-}
-
+// This function runs the appropriate handler for each command
 fn get_command_output(command: &ApplicationCommandInteraction) -> String {
     return match command.data.name.as_str() {
-        "test" => test_command_invoked(),
+        "test" => command_handlers::test_command_handler::test_command_handler(),
         _ => String::from("not implemented"),
     };
+}
+
+async fn send_ephemeral_reply(
+    ctx: &Context,
+    command: &ApplicationCommandInteraction,
+    reply_message: &str,
+) -> Result<(), serenity::Error> {
+    command
+        .create_interaction_response(ctx.http.clone(), |response| {
+            response
+                .kind(InteractionResponseType::ChannelMessageWithSource)
+                .interaction_response_data(|message| {
+                    message
+                        .content(reply_message)
+                        .flags(InteractionApplicationCommandCallbackDataFlags::EPHEMERAL)
+                })
+        })
+        .await
 }
