@@ -3,7 +3,9 @@ use serenity::prelude::*;
 use simple_logger::SimpleLogger;
 use std::env;
 
-mod handler;
+use crate::handlers::discord_handler::DiscordHandler;
+
+mod handlers;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -21,7 +23,7 @@ async fn main() -> Result<()> {
 
     // Build and start the client
     let mut client = Client::builder(token)
-        .event_handler(handler::DiscordHandler)
+        .event_handler(DiscordHandler)
         .application_id(application_id)
         .await?;
 

@@ -1,12 +1,12 @@
 use serenity::{
     async_trait,
-    builder::{CreateApplicationCommand, CreateApplicationCommands},
+    builder::CreateApplicationCommands,
     model::{
         gateway::Ready,
         id::GuildId,
         interactions::{
-            application_command::ApplicationCommandOptionType, Interaction,
-            InteractionApplicationCommandCallbackDataFlags, InteractionResponseType,
+            application_command::{ApplicationCommandInteraction, ApplicationCommandOptionType},
+            Interaction, InteractionApplicationCommandCallbackDataFlags, InteractionResponseType,
         },
     },
     prelude::*,
@@ -42,11 +42,9 @@ impl EventHandler for DiscordHandler {
     }
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
+        // In this method we react to our bot's slash commands
         if let Interaction::ApplicationCommand(command) = interaction {
-            let content = match command.data.name.as_str() {
-                "test" => "right back at ya",
-                _ => "not implemented",
-            };
+            let content = get_command_output(&command);
 
             let result = command
                 .create_interaction_response(&ctx.http, |response| {
@@ -87,4 +85,15 @@ fn create_slash_commands(
                     .add_string_choice("name", "value")
             })
     })
+}
+
+fn test_command_invoked() -> String {
+    String::from("reply!")
+}
+
+fn get_command_output(command: &ApplicationCommandInteraction) -> String {
+    return match command.data.name.as_str() {
+        "test" => test_command_invoked(),
+        _ => String::from("not implemented"),
+    };
 }
