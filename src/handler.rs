@@ -1,5 +1,6 @@
 use serenity::{
     async_trait,
+    builder::{CreateApplicationCommand, CreateApplicationCommands},
     model::{
         gateway::Ready,
         id::GuildId,
@@ -26,23 +27,11 @@ impl EventHandler for DiscordHandler {
         // Here we iterate through the guilds and create slash commands in them
         for guild_id in guild_ids {
             let name = guild_id.name(ctx.cache.clone()).await.unwrap();
+
             log::info!("Adding slash commands to guild: {}", name);
-            let commands = GuildId::set_application_commands(&guild_id, &ctx.http, |commands| {
-                commands.create_application_command(|command| {
-                    command
-                        .name("test")
-                        .description("a test command")
-                        .create_option(|option| {
-                            option
-                                .name("my_option")
-                                .description("a test option")
-                                .kind(ApplicationCommandOptionType::String)
-                                .required(true)
-                                .add_string_choice("name", "value")
-                        })
-                })
-            })
-            .await;
+            let commands =
+                GuildId::set_application_commands(&guild_id, &ctx.http, create_slash_commands)
+                    .await;
 
             log::info!(
                 "Successfully added {} commands to {}",
@@ -79,4 +68,23 @@ impl EventHandler for DiscordHandler {
             }
         }
     }
+}
+
+// Function to create all the slash commands for the application
+fn create_slash_commands(
+    commands: &mut CreateApplicationCommands,
+) -> &mut CreateApplicationCommands {
+    commands.create_application_command(|command| {
+        command
+            .name("test")
+            .description("a test command")
+            .create_option(|option| {
+                option
+                    .name("my_option")
+                    .description("a test option")
+                    .kind(ApplicationCommandOptionType::String)
+                    .required(true)
+                    .add_string_choice("name", "value")
+            })
+    })
 }
