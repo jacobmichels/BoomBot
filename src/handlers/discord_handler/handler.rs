@@ -12,7 +12,7 @@ use serenity::{
     prelude::*,
 };
 
-use super::command_handlers;
+use crate::handlers::command_handlers::test_command_handler::test_command_handler;
 
 pub struct DiscordHandler;
 
@@ -83,7 +83,7 @@ fn create_slash_commands(
 // This function runs the appropriate handler for each command
 fn get_command_output(command: &ApplicationCommandInteraction) -> String {
     return match command.data.name.as_str() {
-        "test" => command_handlers::test_command_handler::test_command_handler(),
+        "test" => test_command_handler(),
         _ => String::from("not implemented"),
     };
 }

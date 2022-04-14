@@ -3,7 +3,7 @@ use serenity::prelude::*;
 use simple_logger::SimpleLogger;
 use std::env;
 
-use crate::handlers::discord_handler::DiscordHandler;
+use handlers::discord_handler::DiscordHandler;
 
 mod handlers;
 
