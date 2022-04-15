@@ -1,3 +1,3 @@
-pub fn test_command_handler() -> String {
+pub fn register_command_handler() -> String {
     String::from("reply!")
 }
