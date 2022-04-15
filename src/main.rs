@@ -3,9 +3,9 @@ use serenity::prelude::*;
 use simple_logger::SimpleLogger;
 use std::env;
 
-use handlers::discord_handler::DiscordHandler;
+use crate::discord_handler::DiscordHandler;
 
-mod handlers;
+mod discord_handler;
 
 #[tokio::main]
 async fn main() -> Result<()> {
