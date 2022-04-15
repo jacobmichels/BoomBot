@@ -107,5 +107,29 @@ async fn register_command_handler(
     command: &ApplicationCommandInteraction,
 ) -> anyhow::Result<()> {
     send_ephemeral_reply(ctx, command, "Check your DMs to get started with BoomBot!").await?;
+    let message = command
+        .user
+        .direct_message(&ctx, |message| {
+            message.content("React with a thumbs up to continue")
+        })
+        .await?;
+
+    message
+        .await_reaction(&ctx)
+        .filter(|reaction| {
+            log::info!("reacted with {}", reaction.emoji.as_data());
+            if let "👍" = reaction.emoji.as_data().as_str() {
+                return true;
+            }
+
+            false
+        })
+        .await;
+
+    command
+        .user
+        .direct_message(&ctx, |message| message.content("Thank you!"))
+        .await?;
+
     Ok(())
 }
