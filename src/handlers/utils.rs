@@ -23,7 +23,7 @@ pub fn create_slash_commands(
 // This function runs the appropriate handler for each command
 pub fn run_command_handler(command: &ApplicationCommandInteraction) -> String {
     return match command.data.name.as_str() {
-        "register" => register_command_handler(),
+        "register" => register_command_handler(command),
         _ => String::from("not implemented"),
     };
 }
