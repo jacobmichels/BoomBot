@@ -1,8 +1,9 @@
-use anyhow::Result;
+use anyhow::{Ok, Result};
 use serenity::{
     async_trait,
     builder::CreateApplicationCommands,
     model::{
+        channel::ReactionType,
         gateway::Ready,
         id::GuildId,
         interactions::{
@@ -11,6 +12,7 @@ use serenity::{
         },
     },
     prelude::*,
+    utils::MessageBuilder,
 };
 
 // Unit struct to act as our EventHandler for discord events
@@ -106,19 +108,34 @@ async fn register_command_handler(
     ctx: &Context,
     command: &ApplicationCommandInteraction,
 ) -> anyhow::Result<()> {
+    // Send reply to channel directing user to DMs
     send_ephemeral_reply(ctx, command, "Check your DMs to get started with BoomBot!").await?;
+
+    // Send DM with credentials warning
     let message = command
         .user
         .direct_message(&ctx, |message| {
-            message.content("React with a thumbs up to continue")
+            let content = MessageBuilder::new().push("Hello ").mention(&command.user).push("! 👋\n\nTo allow BoomBot access to your Valorant data, you'll need to enter your Riot account credentials to fetch your Valorant data.\n\nReact with 👍 if you're ready to continue, or 🚫 to cancel.").build();
+            message.content(content)
         })
         .await?;
 
+    // Get user reaction to continue
     message
+        .react(&ctx, ReactionType::Unicode("👍".to_string()))
+        .await?;
+    message
+        .react(&ctx, ReactionType::Unicode("🚫".to_string()))
+        .await?;
+
+    let reaction_result = message
         .await_reaction(&ctx)
         .filter(|reaction| {
             log::info!("reacted with {}", reaction.emoji.as_data());
             if let "👍" = reaction.emoji.as_data().as_str() {
+                return true;
+            }
+            if let "🚫" = reaction.emoji.as_data().as_str() {
                 return true;
             }
 
@@ -126,10 +143,192 @@ async fn register_command_handler(
         })
         .await;
 
+    if reaction_result.is_none() {
+        command
+            .user
+            .direct_message(&ctx, |message| message.content("invalid reaction"))
+            .await?;
+        return Ok(());
+    }
+
+    // If the reaction is negative, cancel the flow
+    if reaction_result
+        .unwrap()
+        .as_inner_ref()
+        .emoji
+        .as_data()
+        .as_str()
+        == "🚫"
+    {
+        command
+            .user
+            .direct_message(&ctx, |message| {
+                message.content(
+                    "No problem, feel free to call /register again if you change your mind.",
+                )
+            })
+            .await?;
+
+        return Ok(());
+    }
+
+    // Start the positive flow by getting a username from the user
     command
         .user
-        .direct_message(&ctx, |message| message.content("Thank you!"))
+        .direct_message(&ctx, |message| message.content("Great! Let's get started."))
         .await?;
 
-    Ok(())
+    let dm_channel_id = command.user.create_dm_channel(&ctx).await?.id;
+
+    loop {
+        command
+            .user
+            .direct_message(&ctx, |message| {
+                message.content("Please enter your Riot account username.")
+            })
+            .await?;
+
+        let username_reply = command
+            .user
+            .await_reply(&ctx)
+            .channel_id(dm_channel_id)
+            .filter(|reply_message| {
+                if reply_message.content.is_empty() {
+                    return false;
+                }
+                true
+            })
+            .await;
+
+        if username_reply.is_none() {
+            command
+                .user
+                .direct_message(&ctx, |message| {
+                    message.content("Invalid username, please re-run /register.")
+                })
+                .await?;
+            return Ok(());
+        }
+
+        let username = &username_reply.unwrap().content;
+
+        command
+            .user
+            .direct_message(&ctx, |message| {
+                message.content("Please enter your Riot account password.")
+            })
+            .await?;
+
+        let password_reply = command
+            .user
+            .await_reply(&ctx)
+            .channel_id(dm_channel_id)
+            .filter(|reply_message| {
+                if reply_message.content.is_empty() {
+                    return false;
+                }
+                true
+            })
+            .await;
+
+        if password_reply.is_none() {
+            command
+                .user
+                .direct_message(&ctx, |message| {
+                    message.content("Invalid password, please re-run /register")
+                })
+                .await?;
+            return Ok(());
+        }
+
+        let password = &password_reply.unwrap().content;
+
+        command
+            .user
+            .direct_message(&ctx, |message| {
+                message.content("Verifying your credentials...")
+            })
+            .await?;
+
+        if mfa_needed(username, password) {
+            command.user.direct_message(&ctx, |message|message.content("Multi-factor authentication is enabled, please enter the auth code from Riot. Check your email.")).await?;
+
+            let mfa_reply = command
+                .user
+                .await_reply(&ctx)
+                .channel_id(dm_channel_id)
+                .filter(|reply_message| {
+                    if reply_message.content.is_empty() || reply_message.content.len() != 6 {
+                        return false;
+                    }
+
+                    true
+                })
+                .await;
+
+            if mfa_reply.is_none() {
+                command
+                    .user
+                    .direct_message(&ctx, |message| {
+                        message.content("Invalid MFA token, please re-run /register")
+                    })
+                    .await?;
+                return Ok(());
+            }
+
+            if credentials_valid(username, password, Some(&mfa_reply.unwrap().content)) {
+                command
+                    .user
+                    .direct_message(&ctx, |message| {
+                        message.content("Credentials valid! You're all set up.")
+                    })
+                    .await?;
+                command
+                .user
+                .direct_message(&ctx, |message| {
+                    message.content("To get a list of commands to use, type /help in the channel you registered from.")
+                })
+                .await?;
+                return Ok(());
+            } else {
+                command
+                    .user
+                    .direct_message(&ctx, |message| {
+                        message.content("Credentials invalid, try again.")
+                    })
+                    .await?;
+            }
+        }
+
+        if credentials_valid(username, password, None) {
+            command
+                .user
+                .direct_message(&ctx, |message| {
+                    message.content("Credentials valid! You're all set up.")
+                })
+                .await?;
+            command
+                .user
+                .direct_message(&ctx, |message| {
+                    message.content("To get a list of commands to use, type /help in the channel you registered from.")
+                })
+                .await?;
+            return Ok(());
+        } else {
+            command
+                .user
+                .direct_message(&ctx, |message| {
+                    message.content("Credentials invalid, try again.")
+                })
+                .await?;
+        }
+    }
+}
+
+fn mfa_needed(username: &str, password: &str) -> bool {
+    false
+}
+
+fn credentials_valid(username: &str, password: &str, mfa_token: Option<&str>) -> bool {
+    true
 }
