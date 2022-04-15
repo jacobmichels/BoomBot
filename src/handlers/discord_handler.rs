@@ -12,8 +12,6 @@ use serenity::{
     prelude::*,
 };
 
-use crate::handlers::command_handlers::test_command_handler::test_command_handler;
-
 pub struct DiscordHandler;
 
 #[async_trait]
@@ -104,4 +102,8 @@ async fn send_ephemeral_reply(
                 })
         })
         .await
+}
+
+pub fn test_command_handler() -> String {
+    String::from("reply!")
 }
