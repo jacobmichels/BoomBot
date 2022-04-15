@@ -1,14 +1,6 @@
 use serenity::{
     async_trait,
-    builder::CreateApplicationCommands,
-    model::{
-        gateway::Ready,
-        id::GuildId,
-        interactions::{
-            application_command::{ApplicationCommandInteraction, ApplicationCommandOptionType},
-            Interaction, InteractionApplicationCommandCallbackDataFlags, InteractionResponseType,
-        },
-    },
+    model::{gateway::Ready, id::GuildId, interactions::Interaction},
     prelude::*,
 };
 
