@@ -1,4 +1,7 @@
+use std::{collections::HashMap, str::from_utf8};
+
 use anyhow::{Ok, Result};
+use reqwest::Response;
 use serenity::{
     async_trait,
     builder::CreateApplicationCommands,
@@ -14,6 +17,16 @@ use serenity::{
     prelude::*,
     utils::MessageBuilder,
 };
+
+#[derive(thiserror::Error, Debug)]
+pub enum AuthError {
+    #[error("credentials wrong")]
+    AuthFailed,
+    #[error("mfa token needed")]
+    MFANeeded,
+    #[error("http error")]
+    HttpError(String),
+}
 
 // Unit struct to act as our EventHandler for discord events
 pub struct DiscordHandler;
@@ -131,7 +144,6 @@ async fn register_command_handler(
     let reaction_result = message
         .await_reaction(&ctx)
         .filter(|reaction| {
-            log::info!("reacted with {}", reaction.emoji.as_data());
             if let "👍" = reaction.emoji.as_data().as_str() {
                 return true;
             }
@@ -250,33 +262,9 @@ async fn register_command_handler(
             })
             .await?;
 
-        if mfa_needed(username, password) {
-            command.user.direct_message(&ctx, |message|message.content("Multi-factor authentication is enabled, please enter the auth code from Riot. Check your email.")).await?;
-
-            let mfa_reply = command
-                .user
-                .await_reply(&ctx)
-                .channel_id(dm_channel_id)
-                .filter(|reply_message| {
-                    if reply_message.content.is_empty() || reply_message.content.len() != 6 {
-                        return false;
-                    }
-
-                    true
-                })
-                .await;
-
-            if mfa_reply.is_none() {
-                command
-                    .user
-                    .direct_message(&ctx, |message| {
-                        message.content("Invalid MFA token, please re-run /register")
-                    })
-                    .await?;
-                return Ok(());
-            }
-
-            if credentials_valid(username, password, Some(&mfa_reply.unwrap().content)) {
+        let credentials_result = credentials_valid(username, password, None).await;
+        match credentials_result {
+            std::result::Result::Ok(()) => {
                 command
                     .user
                     .direct_message(&ctx, |message| {
@@ -290,45 +278,128 @@ async fn register_command_handler(
                 })
                 .await?;
                 return Ok(());
-            } else {
-                command
-                    .user
-                    .direct_message(&ctx, |message| {
-                        message.content("Credentials invalid, try again.")
-                    })
-                    .await?;
             }
-        }
+            Err(err) => match err {
+                AuthError::AuthFailed => {
+                    command
+                        .user
+                        .direct_message(&ctx, |message| {
+                            message.content("Credentials invalid, try again.")
+                        })
+                        .await?;
+                }
+                AuthError::MFANeeded => {
+                    command
+                        .user
+                        .direct_message(&ctx, |message| {
+                            message.content("Multi-factor authentication is enabled, please enter your auth code from Riot. Check your email.")
+                        })
+                        .await?;
 
-        if credentials_valid(username, password, None) {
-            command
-                .user
-                .direct_message(&ctx, |message| {
-                    message.content("Credentials valid! You're all set up.")
-                })
-                .await?;
-            command
-                .user
-                .direct_message(&ctx, |message| {
-                    message.content("To get a list of commands to use, type /help in the channel you registered from.")
-                })
-                .await?;
-            return Ok(());
-        } else {
-            command
-                .user
-                .direct_message(&ctx, |message| {
-                    message.content("Credentials invalid, try again.")
-                })
-                .await?;
+                    let mfa_reply = command
+                        .user
+                        .await_reply(&ctx)
+                        .channel_id(dm_channel_id)
+                        .filter(|reply_message| {
+                            if reply_message.content.is_empty() || reply_message.content.len() != 6
+                            {
+                                return false;
+                            }
+
+                            true
+                        })
+                        .await;
+
+                    if mfa_reply.is_none() {
+                        command
+                            .user
+                            .direct_message(&ctx, |message| {
+                                message.content("Invalid MFA token, please re-run /register")
+                            })
+                            .await?;
+                        return Ok(());
+                    }
+                    if let std::result::Result::Ok(()) =
+                        credentials_valid(username, password, Some(&mfa_reply.unwrap().content))
+                            .await
+                    {
+                        command
+                            .user
+                            .direct_message(&ctx, |message| {
+                                message.content("Credentials valid! You're all set up.")
+                            })
+                            .await?;
+                        command
+                            .user
+                            .direct_message(&ctx, |message| {
+                                message.content("To get a list of commands to use, type /help in the channel you registered from.")
+                            })
+                            .await?;
+                        return Ok(());
+                    } else {
+                        command
+                            .user
+                            .direct_message(&ctx, |message| {
+                                message.content("Credentials invalid, try again.")
+                            })
+                            .await?;
+                    }
+                }
+                AuthError::HttpError(message) => return Err(AuthError::HttpError(message).into()),
+            },
         }
     }
 }
 
-fn mfa_needed(username: &str, password: &str) -> bool {
-    false
-}
+async fn credentials_valid(
+    username: &str,
+    password: &str,
+    mfa_token: Option<&str>,
+) -> Result<(), AuthError> {
+    let client = reqwest::ClientBuilder::new()
+        .cookie_store(true)
+        .no_proxy()
+        .build()
+        .unwrap();
 
-fn credentials_valid(username: &str, password: &str, mfa_token: Option<&str>) -> bool {
-    true
+    let mut data = HashMap::new();
+    data.insert("client_id", "play-valorant-web-prod");
+    data.insert("nonce", "1");
+    data.insert("redirect_uri", "https://playvalorant.com/opt_in");
+    data.insert("response_type", "token id_token");
+
+    let response = client
+        .post("https://auth.riotgames.com/api/v1/authorization")
+        .json(&data)
+        .header("User-Agent", "Chrome/99.0.4844.51 Safari/537.36")
+        .send()
+        .await;
+
+    if let Err(err) = response {
+        return Err(AuthError::HttpError(err.to_string()));
+    }
+
+    log::info!("request 1 status: {}", response.as_ref().unwrap().status());
+    log::info!("text: {}", response.unwrap().text().await.unwrap());
+
+    data.clear();
+    data.insert("type", "auth");
+    data.insert("username", username);
+    data.insert("password", password);
+    data.insert("remember", "true");
+
+    let auth_response = client
+        .put("https://auth.riotgames.com/api/v1/authorization")
+        .header("User-Agent", "Chrome/99.0.4844.51 Safari/537.36")
+        .json(&data)
+        .send()
+        .await;
+
+    if let Err(err) = auth_response {
+        return Err(AuthError::HttpError(err.to_string()));
+    }
+
+    log::info!("{}", auth_response.unwrap().text().await.unwrap());
+
+    std::result::Result::Ok(())
 }
