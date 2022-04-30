@@ -98,10 +98,12 @@ dependencies = [
  "anyhow",
  "log",
  "reqwest",
+ "serde_json",
  "serenity",
  "simple_logger",
  "thiserror",
  "tokio",
+ "url",
 ]
 
 [[package]]
