@@ -1,14 +1,14 @@
-use std::{collections::HashMap, str::from_utf8};
+use std::collections::HashMap;
 
 use anyhow::{Ok, Result};
-use reqwest::Response;
+use serde_json::Value;
 use serenity::{
     async_trait,
     builder::CreateApplicationCommands,
     model::{
         channel::ReactionType,
         gateway::Ready,
-        id::GuildId,
+        id::{self, GuildId},
         interactions::{
             application_command::ApplicationCommandInteraction, Interaction,
             InteractionApplicationCommandCallbackDataFlags, InteractionResponseType,
@@ -17,6 +17,7 @@ use serenity::{
     prelude::*,
     utils::MessageBuilder,
 };
+use url::Url;
 
 #[derive(thiserror::Error, Debug)]
 pub enum AuthError {
@@ -379,27 +380,67 @@ async fn credentials_valid(
         return Err(AuthError::HttpError(err.to_string()));
     }
 
-    log::info!("request 1 status: {}", response.as_ref().unwrap().status());
-    log::info!("text: {}", response.unwrap().text().await.unwrap());
+    if mfa_token.is_none() {
+        data.clear();
+        data.insert("type", "auth");
+        data.insert("username", username);
+        data.insert("password", password);
+        data.insert("remember", "true");
 
-    data.clear();
-    data.insert("type", "auth");
-    data.insert("username", username);
-    data.insert("password", password);
-    data.insert("remember", "true");
+        let auth_response = client
+            .put("https://auth.riotgames.com/api/v1/authorization")
+            .header("User-Agent", "Chrome/99.0.4844.51 Safari/537.36")
+            .json(&data)
+            .send()
+            .await;
 
-    let auth_response = client
-        .put("https://auth.riotgames.com/api/v1/authorization")
-        .header("User-Agent", "Chrome/99.0.4844.51 Safari/537.36")
-        .json(&data)
-        .send()
-        .await;
+        if let Err(err) = auth_response {
+            return Err(AuthError::HttpError(err.to_string()));
+        }
 
-    if let Err(err) = auth_response {
-        return Err(AuthError::HttpError(err.to_string()));
+        let auth_response_json: Value =
+            serde_json::from_str(&auth_response.unwrap().text().await.unwrap()).unwrap();
+
+        if auth_response_json["type"].as_str().unwrap() == "multifactor" {
+            return Err(AuthError::MFANeeded);
+        }
+
+        let response_url = Url::parse(
+            auth_response_json["response"]["parameters"]["uri"]
+                .as_str()
+                .unwrap(),
+        )
+        .unwrap();
+
+        let fragment_params: Vec<&str> = response_url.fragment().unwrap().split('&').collect();
+        let access_token = fragment_params[0].split('=').last().unwrap();
+        let id_token = fragment_params[3].split('=').last().unwrap();
+
+        // println!("Access token {}", access_token);
+        // println!("Id token {}", id_token);
+
+        data.clear();
+
+        let entitlement_response = client
+            .post("https://entitlements.auth.riotgames.com/api/token/v1")
+            .bearer_auth(access_token)
+            .json(&data)
+            .send()
+            .await;
+
+        if let Err(err) = entitlement_response {
+            return Err(AuthError::HttpError(err.to_string()));
+        }
+
+        let entitlement_response_json: Value =
+            serde_json::from_str(&entitlement_response.unwrap().text().await.unwrap()).unwrap();
+
+        let entitlements_token = entitlement_response_json["entitlements_token"]
+            .as_str()
+            .unwrap();
+
+        // println!("{}", entitlement_response.unwrap().text().await.unwrap());
     }
-
-    log::info!("{}", auth_response.unwrap().text().await.unwrap());
 
     std::result::Result::Ok(())
 }
